@@ -141,11 +141,10 @@ def stats_summary():
     groceries = Grocery.query.all()
     total_items = len(groceries)
     low_items = len([g for g in groceries if g.stock < g.threshold])
-    total_stock = sum(g.stock for g in groceries)
     return jsonify({
         "total_items": total_items,
         "low_items": low_items,
-        "total_stock": total_stock,
+        "in_stock": total_items - low_items,
         "items": [g.to_dict() for g in groceries]
     })
 

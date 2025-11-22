@@ -1,4 +1,5 @@
-fastapi
-uvicorn
-sqlmodel
-pyodbc
+flask
+flask-cors
+flask-sqlalchemy
+sqlalchemy
+gunicorn

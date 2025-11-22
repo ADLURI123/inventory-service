@@ -149,5 +149,9 @@ def stats_summary():
         "items": [g.to_dict() for g in groceries]
     })
 
+@app.route("/", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)

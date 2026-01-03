@@ -3,6 +3,8 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+import pandas as pd
+from prophet import Prophet
 
 app = Flask(__name__)
 CORS(app)
@@ -278,6 +280,35 @@ def delete_food(f_id):
     db.session.delete(f)
     db.session.commit()
     return jsonify({"message": "Deleted"})
+
+@app.route("/predict/prophet", methods=["GET"])
+def predict_prophet():
+    target_date = request.args.get("date")
+    if not target_date:
+        return jsonify({"error": "date query param required"}), 400
+    try:
+        df = pd.read_csv("data.csv")
+    except Exception:
+        return jsonify({"error": "data.csv not found"}), 500
+
+    df["Date"] = pd.to_datetime(df["Date"], format="%d-%m-%y")
+    daily = (
+        df.groupby("Date", as_index=False)["Total"]
+        .sum()
+        .rename(columns={"Date": "ds", "Total": "y"})
+    )
+
+    model = Prophet()
+    model.fit(daily)
+    future = pd.DataFrame({
+        "ds": [pd.to_datetime(target_date)]
+    })
+    forecast = model.predict(future)
+
+    return jsonify({
+        "date": target_date,
+        "prediction": round(float(forecast.iloc[0]["yhat"]), 2)
+    })
 
 @app.route("/", methods=["GET"])
 def health():

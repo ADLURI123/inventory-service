@@ -282,24 +282,30 @@ def delete_food(f_id):
     return jsonify({"message": "Deleted"})
 
 @app.route("/predict/prophet", methods=["GET"])
-def predict_prophet():
+def predict_footfall_prophet():
     target_date = request.args.get("date")
     if not target_date:
         return jsonify({"error": "date query param required"}), 400
+
     try:
         df = pd.read_csv("data.csv")
     except Exception:
         return jsonify({"error": "data.csv not found"}), 500
 
+
     df["Date"] = pd.to_datetime(df["Date"], format="%d-%m-%y")
-    daily = (
-        df.groupby("Date", as_index=False)["Total"]
-        .sum()
-        .rename(columns={"Date": "ds", "Total": "y"})
+
+    daily_footfall = (
+        df.groupby("Date")
+        .size()
+        .reset_index(name="y")
+        .rename(columns={"Date": "ds"})
     )
 
+  
     model = Prophet()
-    model.fit(daily)
+    model.fit(daily_footfall)
+
     future = pd.DataFrame({
         "ds": [pd.to_datetime(target_date)]
     })
@@ -307,7 +313,7 @@ def predict_prophet():
 
     return jsonify({
         "date": target_date,
-        "prediction": round(float(forecast.iloc[0]["yhat"]), 2)
+        "predicted_footfall": int(round(forecast.iloc[0]["yhat"]))
     })
 
 @app.route("/", methods=["GET"])

@@ -4,8 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
 import pandas as pd
-import numpy as np
-import lightgbm as lgb
+from prophet import Prophet
 
 app = Flask(__name__)
 CORS(app)
@@ -282,18 +281,7 @@ def delete_food(f_id):
     db.session.commit()
     return jsonify({"message": "Deleted"})
 
-# Global model cache
-lgb_model = None
-train_data = None
-
-def create_sequences(data, lookback=10):
-    X, y = [], []
-    for i in range(len(data) - lookback):
-        X.append(data[i:i+lookback])
-        y.append(data[i+lookback])
-    return np.array(X), np.array(y)
-
-@app.route("/predict/", methods=["GET"])
+@app.route("/predict/prophet", methods=["GET"])
 def predict_footfall_prophet():
     target_date = request.args.get("date")
     if not target_date:
@@ -301,41 +289,32 @@ def predict_footfall_prophet():
 
     try:
         df = pd.read_csv("data.csv")
-        df["Date"] = pd.to_datetime(df["Date"], format="%d-%m-%y")
-        
-        daily_footfall = (
-            df.groupby("Date")
-            .size()
-            .reset_index(name="count")
-            .sort_values("Date")
-        )
-        
-        ts_values = daily_footfall["count"].values
-        lookback = 10
-        X_train, y_train = create_sequences(ts_values, lookback)
-        
-        lgb_model = lgb.LGBMRegressor(
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=7,
-            random_state=42,
-            verbose=-1
-        )
-        lgb_model.fit(X_train, y_train)
-        
-        if len(ts_values) >= lookback:
-            last_sequence = ts_values[-lookback:].reshape(1, -1)
-            predicted_footfall = lgb_model.predict(last_sequence)[0]
-        else:
-            return jsonify({"error": "Insufficient data for prediction"}), 400
-        
-        return jsonify({
-            "date": target_date,
-            "predicted_footfall": int(round(max(0, predicted_footfall)))
-        })
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return jsonify({"error": "data.csv not found"}), 500
+
+
+    df["Date"] = pd.to_datetime(df["Date"], format="%d-%m-%y")
+
+    daily_footfall = (
+        df.groupby("Date")
+        .size()
+        .reset_index(name="y")
+        .rename(columns={"Date": "ds"})
+    )
+
+  
+    model = Prophet()
+    model.fit(daily_footfall)
+
+    future = pd.DataFrame({
+        "ds": [pd.to_datetime(target_date)]
+    })
+    forecast = model.predict(future)
+
+    return jsonify({
+        "date": target_date,
+        "predicted_footfall": int(round(forecast.iloc[0]["yhat"]))
+    })
 
 @app.route("/", methods=["GET"])
 def health():

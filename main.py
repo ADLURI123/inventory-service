@@ -318,7 +318,7 @@ def predict_footfall_prophet():
 
 @app.route("/", methods=["GET"])
 def health():
-    return jsonify({"status": "ok"}), 200
+    return jsonify({"status": "Ok"}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
